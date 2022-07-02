@@ -1,6 +1,9 @@
 {
   "private": true,
   "sideEffects": false,
+  "prisma":{
+    "seed": "node --require esbuild-register prisma/prisma.ts"
+  },
   "scripts": {
     "build": "remix build",
     "dev": "remix dev",
