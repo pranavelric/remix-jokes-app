@@ -1,6 +1,36 @@
 import type {ActionFunction} from "@remix-run/node";
-import { redirect } from "@remix-run/node";
+import { json,redirect } from "@remix-run/node";
 import { db } from "~/utils/db.server";
+import {useActionData} from "@remix-run/react";
+
+function validateJokeContent(content: string) {
+  if (content.length < 10) {
+    return `That joke is too short`;
+  }
+}
+
+function validateJokeName(name: string) {
+  if (name.length < 3) {
+    return `That joke's name is too short`;
+  }
+}
+
+
+type ActionData = {
+  formError?: string;
+  fieldErrors?: {
+    name: string | undefined;
+    content: string | undefined;
+  };
+  fields?: {
+    name: string;
+    content: string;
+  };
+};
+
+
+const badRequest = (data: ActionData) =>
+  json(data, { status: 400 });
 
 
 export const action:ActionFunction =async ({request,}) => {
@@ -9,11 +39,23 @@ export const action:ActionFunction =async ({request,}) => {
   const content = form.get("content");
 
   if(typeof name!=="string"|| typeof content!=="string"){
-    throw new Error("Form not sumitted correctly.");
+    return badRequest({
+      formError: `Form not submitted correctly.`,
+    });
   }
 
-  const fields = {name,content};
 
+  const fieldErrors = {
+    name:validateJokeName(name),
+    content:validateJokeContent(content),
+
+  };
+
+
+  const fields = {name,content};
+  if(Object.values(fieldErrors).some(Boolean)){
+    return badRequest({fieldErrors,fields});
+  }
   const joke = await db.joke.create({data:fields});
   return redirect(`/jokes/${joke.id}`);
 
@@ -22,19 +64,54 @@ export const action:ActionFunction =async ({request,}) => {
 
 
 export default function create() {
+  const actionData= useActionData<ActionData>();
+
   return (
     <div>
     <p>Add your own hilarious joke</p>
     <form method="post">
       <div>
         <label>
-          Name: <input type="text" name="name" />
+          Name: <input type="text" name="name" 
+          defaultValue={actionData?.fields?.name || undefined
+          }
+          aria-errormessage = {
+            actionData?.fieldErrors.name?"name-error":undefined
+          }
+
+          />
         </label>
+        {actionData?.fieldErrors?.name?(
+          <p
+          className="form-validation-error"
+          role="alert"
+          id="name-error"
+          >
+              {actionData.fieldErrors.name}
+          </p>
+
+        ):null}
       </div>
       <div>
         <label>
-          Content: <textarea name="content" />
+          Content: <textarea defaultValue={actionData?.fields?.content || undefined
+          }
+          aria-errormessage = {
+            actionData?.fieldErrors.content?"content-error":undefined
+          }
+           name="content" />
         </label>
+
+        {actionData?.fieldErrors?.content?(
+          <p
+          className="form-validation-error"
+          role="alert"
+          id="content-error"
+          >
+              {actionData.fieldErrors.content}
+          </p>
+
+        ):null}
       </div>
       <div>
         <button type="submit" className="button">
